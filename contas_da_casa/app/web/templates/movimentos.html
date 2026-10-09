@@ -23,7 +23,7 @@
   <td class="desc">{{ m[3] }}{% if m[10] %}<br><span class="nota">{{ m[10] }}</span>{% endif %}{% if m[8] == 'previsto' %} <span class="nota">(previsto)</span>{% endif %}</td>
   <td>{{ euro(m[4]) }}</td>
   <td>{{ cat_nome.get(m[5], 'Por classificar') }}</td><td>{{ sub_nome.get(m[6], '') }}</td><td>{{ pes_nome.get(m[7], '—') }}</td>
-  <td><a href="{{ url_for('movimento', mov_id=m[0], voltar=request.full_path) }}">Corrigir</a></td>
+  <td><a href="{{ url_for('movimento', mov_id=m[0], voltar=request.script_root ~ request.full_path) }}">Corrigir</a></td>
 </tr>
 {% else %}<tr><td colspan="8">Nenhum movimento com estes filtros.</td></tr>{% endfor %}
 </tbody></table></div>

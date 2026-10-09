@@ -282,19 +282,29 @@ def _int(v):
     except ValueError: return None
 
 
+def _destino(voltar, padrao):
+    """Destino após guardar: só caminhos internos, e sempre com o prefixo do ingress."""
+    if not voltar or not voltar.startswith('/') or voltar.startswith('//'):
+        return url_for(padrao)
+    raiz = request.script_root
+    if raiz and not (voltar == raiz or voltar.startswith(raiz + '/')):
+        voltar = raiz + voltar
+    return voltar
+
+
 @app.post('/classificar/<int:mov_id>')
 def classificar(mov_id):
     n = operacoes.classificar(db(), mov_id, _int(request.form.get('categoria')), _int(request.form.get('subcategoria')),
                               _int(request.form.get('pessoa')), bool(request.form.get('mesma_descricao')))
     flash(f'Classificado ({n} movimento{"s" if n > 1 else ""}).')
-    return redirect(request.form.get('voltar') or url_for('pendentes'))
+    return redirect(_destino(request.form.get('voltar'), 'pendentes'))
 
 
 @app.post('/conciliar/<int:mov_id>/<int:previsto_id>')
 def conciliar(mov_id, previsto_id):
     operacoes.conciliar(db(), mov_id, previsto_id)
     flash('Conciliado com o movimento previsto.')
-    return redirect(request.form.get('voltar') or url_for('pendentes'))
+    return redirect(_destino(request.form.get('voltar'), 'pendentes'))
 
 
 @app.post('/apagar/<int:mov_id>')
@@ -303,7 +313,7 @@ def apagar(mov_id):
         operacoes.apagar(db(), mov_id); flash('Movimento apagado.')
     except ValueError as e:
         flash(str(e), 'erro')
-    return redirect(request.form.get('voltar') or url_for('movimentos'))
+    return redirect(_destino(request.form.get('voltar'), 'movimentos'))
 
 
 # ---------------------------------------------------------------- movimento previsto
@@ -360,7 +370,7 @@ def movimento(mov_id):
                      WHERE m.id = ?''', (mov_id,)).fetchone()
     if not m:
         abort(404)
-    return render_template('movimento.html', m=m, voltar=request.args.get('voltar') or url_for('movimentos'),
+    return render_template('movimento.html', m=m, voltar=_destino(request.args.get('voltar'), 'movimentos'),
                            **operacoes.listas(c))
 
 
