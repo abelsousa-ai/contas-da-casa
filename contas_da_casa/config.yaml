@@ -2,7 +2,7 @@ name: Contas da casa
 version: "1.0.0"
 slug: contas_da_casa
 description: Importação de extractos, categorização e análise das finanças da casa
-url: "https://github.com/O_TEU_UTILIZADOR/contas-da-casa"
+url: "https://github.com/abelsousa-ai/contas-da-casa"
 arch:
   - aarch64
   - amd64
