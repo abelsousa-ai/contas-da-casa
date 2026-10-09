@@ -1,5 +1,5 @@
 name: Contas da casa
-version: "1.0.0"
+version: "1.0.1"
 slug: contas_da_casa
 description: Importação de extractos, categorização e análise das finanças da casa
 url: "https://github.com/abelsousa-ai/contas-da-casa"
