@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block titulo %}Listas | Contas da casa{% endblock %}
+{% block corpo %}
+<h1>Listas</h1>
+<p class="sub">O que desactivares deixa de aparecer para escolher, mas os movimentos antigos mantêm-se. As subcategorias que só existem no histórico aparecem a cinzento; activá-las põe-nas na lista.</p>
+
+<h2>Pessoas</h2>
+<div class="cartao" style="max-width:420px">
+  <ul>{% for p in pessoas %}<li class="{{ 'inactiva' if not p.activa }}"><span>{{ p.nome }}</span>
+    <form method="post"><input type="hidden" name="tabela" value="pessoa"><input type="hidden" name="id" value="{{ p.id }}">
+    <button class="ligacao" name="accao" value="{{ 'desactivar' if p.activa else 'activar' }}">{{ 'Desactivar' if p.activa else 'Activar' }}</button></form></li>{% endfor %}</ul>
+  <form method="post" class="linha"><input type="hidden" name="tabela" value="pessoa"><input type="hidden" name="accao" value="acrescentar">
+    <label>Nova pessoa<input type="text" name="nome" required></label><button type="submit">Acrescentar</button></form>
+</div>
+
+<h2>Categorias e subcategorias</h2>
+<form method="post" class="linha" style="margin-bottom:16px"><input type="hidden" name="tabela" value="categoria"><input type="hidden" name="accao" value="acrescentar">
+  <label>Nova categoria (de custo)<input type="text" name="nome" required></label><button type="submit">Acrescentar</button></form>
+<div class="colunas">
+{% for c in categorias %}
+<section class="cartao">
+  <h3>{{ c.nome }}{% if not c.activa %} <span class="nota">(só histórico)</span>{% endif %}</h3>
+  <ul>
+  {% for s in subcategorias if s.categoria_id == c.id %}
+    <li class="{{ 'inactiva' if not s.activa }}"><span style="{{ '' if s.na_lista else 'color:var(--tinta-3)' }}">{{ s.nome }}</span>
+      <form method="post"><input type="hidden" name="tabela" value="subcategoria"><input type="hidden" name="id" value="{{ s.id }}">
+      {% if s.activa and s.na_lista %}<button class="ligacao" name="accao" value="desactivar">Desactivar</button>
+      {% else %}<button class="ligacao" name="accao" value="activar">Pôr na lista</button>{% endif %}</form></li>
+  {% else %}<li class="nota">Sem subcategorias</li>{% endfor %}
+  </ul>
+  <form method="post" class="linha"><input type="hidden" name="tabela" value="subcategoria"><input type="hidden" name="accao" value="acrescentar"><input type="hidden" name="categoria" value="{{ c.id }}">
+    <label>Nova subcategoria<input type="text" name="nome" required></label><button class="secundario" type="submit">Acrescentar</button></form>
+</section>
+{% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block titulo %}Análises | Contas da casa{% endblock %}
+{% block corpo %}
+<h1>Análises</h1>
+<nav class="separadores" aria-label="Vistas">
+  <a href="{{ url_for('analises_pagina', vista='mensal', ano=ano) }}" {% if vista == 'mensal' %}aria-current="page"{% endif %}>Ano por mês</a>
+  <a href="{{ url_for('analises_pagina', vista='anual') }}" {% if vista == 'anual' %}aria-current="page"{% endif %}>Comparativo entre anos</a>
+  <a href="{{ url_for('analises_pagina', vista='tendencia') }}" {% if vista == 'tendencia' %}aria-current="page"{% endif %}>Tendência</a>
+</nav>
+
+{% if vista in ('mensal', 'anual') %}
+<div class="controlos">
+  {% if vista == 'mensal' %}
+  <form method="get"><input type="hidden" name="vista" value="mensal">
+    <label>Ano <select name="ano" onchange="this.form.submit()">{% for a in anos|reverse %}<option {% if a == ano %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></label>
+  </form>
+  {% endif %}
+  <label class="campo-check"><input type="checkbox" id="empilhar"> Empilhar categorias</label>
+  <button class="secundario" type="button" id="todas">Todas</button>
+  <button class="secundario" type="button" id="nenhuma">Nenhuma</button>
+</div>
+<div class="filtro" id="filtro" aria-label="Categorias"></div>
+<div class="grafico"><canvas id="colunas" role="img" aria-label="Custos por categoria em euros"></canvas></div>
+<p class="nota">Custos em €. Clica numa categoria para a mostrar ou esconder; “só” mostra apenas essa. Valores abaixo de zero: a categoria recebeu mais do que gastou.</p>
+{% if vista == 'anual' %}
+<h2>Peso de cada categoria por ano</h2>
+<p class="sub">% dos gastos de cada ano, sem Vencimentos e sem as categorias que nesse ano tiveram saldo positivo.</p>
+<div class="queijos" id="queijos"></div>
+{% endif %}
+{% else %}
+<p class="sub">Custos (incluindo Poupança e Investimentos) e rendimento por mês, até ao último mês completo. As linhas tracejadas são a tendência de cada um; a % é a evolução da tendência desde o início.</p>
+<div class="grafico" style="height:420px"><canvas id="tendencia" role="img" aria-label="Custos e rendimento por mês com linhas de tendência"></canvas></div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/chart.umd.js') }}"></script>
+<script>
+window.FIN = {
+  vista: {{ vista|tojson }},
+  url: {{ (url_for('api_mensal', ano=ano|int) if vista == 'mensal' and ano else url_for('api_anual') if vista == 'anual' else url_for('api_tendencia'))|tojson }}
+};
+iniciarAnalises();
+</script>
+{% endblock %}

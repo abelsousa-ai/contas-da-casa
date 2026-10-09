@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block corpo %}
+{% set meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'] %}
+<section class="agora" aria-label="Mês corrente">
+  <div>
+    <p class="legenda">{{ meses[data.month - 1] }} até dia {{ data.day }}: custos</p>
+    <p class="valor">{{ euro(-total.mes, false) if total.mes <= 0 else euro(total.mes) }}</p>
+  </div>
+  <div style="text-align:right">
+    {% if total.pct is not none %}<span class="pct {{ total.cor }}">{{ total.pct }}%</span>{% endif %}
+    <p class="legenda">da média mensal de {{ data.year - 1 }} ({{ euro(-total.media_anterior, false) if total.media_anterior is not none else '—' }})</p>
+  </div>
+</section>
+
+<div class="accoes">
+  <a class="accao" href="{{ url_for('previsto') }}"><strong>Inserir movimento futuro</strong><span>Regista uma despesa agora; é conciliada quando importares o extracto.</span></a>
+  <a class="accao" href="{{ url_for('mes') }}"><strong>Consultar mês corrente</strong><span>O que já saiu, por categoria, comparado com as médias.</span></a>
+  <a class="accao" href="{{ url_for('importar_pagina') }}"><strong>Importar extracto</strong><span>Excel do ActivoBank ou CSV da Revolut.</span></a>
+  <a class="accao" href="{{ url_for('analises_pagina') }}"><strong>Consultar análises</strong><span>Ano por mês, comparativo entre anos e tendência.</span></a>
+</div>
+
+{% if avisos.pendentes or avisos.assinalados or avisos.transferencias %}
+<ul class="alertas">
+  {% if avisos.pendentes %}<li><a href="{{ url_for('pendentes') }}">{{ avisos.pendentes }} movimento{{ 's' if avisos.pendentes > 1 }} por classificar</a></li>{% endif %}
+  {% if avisos.assinalados %}<li><a href="{{ url_for('pendentes') }}#previstos">{{ avisos.assinalados }} movimento{{ 's' if avisos.assinalados > 1 }} previsto{{ 's' if avisos.assinalados > 1 }} sem correspondência no extracto</a></li>{% endif %}
+  {% if avisos.transferencias %}<li><a href="{{ url_for('pendentes') }}#transferencias">{{ avisos.transferencias }} transferência{{ 's' if avisos.transferencias > 1 }} interna{{ 's' if avisos.transferencias > 1 }} sem a outra ponta</a></li>{% endif %}
+</ul>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block titulo %}Movimentos | Contas da casa{% endblock %}
+{% block corpo %}
+<h1>Movimentos</h1>
+<form method="get" class="linha" style="margin-bottom:16px">
+  <label>Texto<input type="search" name="texto" value="{{ filtro.get('texto','') }}" placeholder="Descrição ou observação"></label>
+  <label>Conta<select name="conta"><option value="">Todas</option>{% for c in contas %}<option value="{{ c.id }}" {% if filtro.get('conta') == c.id|string %}selected{% endif %}>{{ c.nome }}</option>{% endfor %}</select></label>
+  <label>Categoria<select name="categoria"><option value="">Todas</option>{% for c in categorias %}<option value="{{ c.id }}" {% if filtro.get('categoria') == c.id|string %}selected{% endif %}>{{ c.nome }}</option>{% endfor %}</select></label>
+  <label>De<input type="date" name="de" value="{{ filtro.get('de','') }}"></label>
+  <label>Até<input type="date" name="ate" value="{{ filtro.get('ate','') }}"></label>
+  <button type="submit">Pesquisar</button>
+</form>
+<p class="nota">{{ total[0] }} movimentos, soma {{ euro(total[1]) }}{% if total[0] > 200 %}; mostro os 200 mais recentes{% endif %}.</p>
+{% set cat_nome = {} %}{% for c in categorias %}{% set _ = cat_nome.update({c.id: c.nome}) %}{% endfor %}
+{% set sub_nome = {} %}{% for s in subcategorias %}{% set _ = sub_nome.update({s.id: s.nome}) %}{% endfor %}
+{% set pes_nome = {} %}{% for p in pessoas %}{% set _ = pes_nome.update({p.id: p.nome}) %}{% endfor %}
+<div class="tabela-wrap"><table>
+<thead><tr><th>Data</th><th>Conta</th><th>Descrição</th><th>Valor</th><th>Categoria</th><th>Subcategoria</th><th>Pessoa</th><th></th></tr></thead>
+<tbody>
+{% for m in linhas %}
+<tr>
+  <td>{{ m[1] }}</td><td>{{ m[2] }}</td>
+  <td class="desc">{{ m[3] }}{% if m[10] %}<br><span class="nota">{{ m[10] }}</span>{% endif %}{% if m[8] == 'previsto' %} <span class="nota">(previsto)</span>{% endif %}</td>
+  <td>{{ euro(m[4]) }}</td>
+  <td>{{ cat_nome.get(m[5], 'Por classificar') }}</td><td>{{ sub_nome.get(m[6], '') }}</td><td>{{ pes_nome.get(m[7], '—') }}</td>
+  <td><a href="{{ url_for('movimento', mov_id=m[0], voltar=request.full_path) }}">Corrigir</a></td>
+</tr>
+{% else %}<tr><td colspan="8">Nenhum movimento com estes filtros.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

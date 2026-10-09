@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block titulo %}Primeira configuração | Contas da casa{% endblock %}
+{% block corpo %}
+<h1>Carregar a base de dados inicial</h1>
+<p class="sub">Escolhe o ficheiro <strong>financas_inicial.sqlite</strong> (o histórico de 2021 a 2026 e as regras). Só é pedido uma vez; depois fica guardado no Home Assistant e entra nos backups.</p>
+{% if erro %}<p class="msg erro">{{ erro }}</p>{% endif %}
+<form method="post" enctype="multipart/form-data" class="linha">
+  <label>Base de dados<input type="file" name="base" accept=".sqlite,.db" required></label>
+  <button type="submit">Carregar</button>
+</form>
+{% endblock %}

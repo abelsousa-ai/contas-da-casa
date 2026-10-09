@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block titulo %}Exportar | Contas da casa{% endblock %}
+{% block corpo %}
+<h1>Exportar</h1>
+<p class="sub">Um ficheiro Excel com todos os movimentos (no formato da folha Dados, com a Pessoa), as categorias e subcategorias e as pessoas. Guarda-o fora do Home Assistant: é a tua cópia de segurança.</p>
+<a class="botao" href="{{ url_for('exportar_ficheiro') }}">Descarregar Excel</a>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import pergunta %}
+{% block titulo %}Pendentes | Contas da casa{% endblock %}
+{% block corpo %}
+<h1>Pendentes</h1>
+{% if not perguntas and not avisos.assinalados and not transferencias %}<p class="sub">Não há nada por resolver.</p>{% endif %}
+
+{% if perguntas %}
+<h2>Por classificar ({{ perguntas|length }})</h2>
+<p class="sub">Sem categoria contam em “Por classificar”; sem pessoa contam já na categoria.</p>
+{% for p in perguntas %}{{ pergunta(p, categorias, subcategorias, pessoas, url_for('pendentes'), euro) }}{% endfor %}
+{% endif %}
+
+<h2 id="previstos">Movimentos previstos por conciliar ({{ previstos|length }})</h2>
+{% if previstos %}
+<div class="tabela-wrap"><table>
+<thead><tr><th>Data</th><th>Conta</th><th>Descrição</th><th>Valor</th><th>Estado</th><th></th></tr></thead>
+<tbody>
+{% for p in previstos %}
+<tr><td>{{ p[1] }}</td><td>{{ p[2] }}</td><td class="desc">{{ p[3] }}</td><td>{{ euro(p[4]) }}</td>
+<td>{% if p[5] == 'assinalado' %}<span class="pct mau">Sem correspondência</span>{% else %}À espera do extracto{% endif %}</td>
+<td><form method="post" action="{{ url_for('apagar', mov_id=p[0]) }}" onsubmit="return confirm('Apagar este movimento previsto?')"><input type="hidden" name="voltar" value="{{ url_for('pendentes') }}#previstos"><button class="ligacao">Apagar</button></form></td></tr>
+{% endfor %}
+</tbody></table></div>
+<p class="nota">“Sem correspondência”: já foi importado um extracto da conta que cobre esta data e o movimento não apareceu. Confirma o valor, a conta e a data, ou apaga-o.</p>
+{% else %}<p class="nota">Nenhum.</p>{% endif %}
+
+{% if transferencias %}
+<h2 id="transferencias">Transferências internas sem a outra ponta ({{ transferencias|length }})</h2>
+<div class="tabela-wrap"><table>
+<thead><tr><th>Data</th><th>Conta</th><th>Descrição</th><th>Valor</th><th>Motivo</th></tr></thead>
+<tbody>{% for t in transferencias %}<tr><td>{{ t[0] }}</td><td>{{ t[1] }}</td><td class="desc">{{ t[2] }}</td><td>{{ euro(t[3]) }}</td><td>{{ t[4] }}</td></tr>{% endfor %}</tbody>
+</table></div>
+<p class="nota">Foram excluídas, mas o extracto da outra conta já cobre esta data e não tem o movimento simétrico.</p>
+{% endif %}
+{% endblock %}

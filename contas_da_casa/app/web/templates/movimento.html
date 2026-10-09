@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import selects %}
+{% block titulo %}Corrigir movimento | Contas da casa{% endblock %}
+{% block corpo %}
+<h1>Corrigir movimento</h1>
+<p class="sub">{{ m[1] }}, {{ m[2] }}: <strong>{{ m[3] }}</strong> ({{ euro(m[4]) }}){% if m[10] %}<br>Observações: {{ m[10] }}{% endif %}</p>
+{% if m[11] %}<p class="nota">{{ m[11] }}</p>{% endif %}
+<form method="post" action="{{ url_for('classificar', mov_id=m[0]) }}" class="form-grelha">
+  <input type="hidden" name="voltar" value="{{ voltar }}">
+  {{ selects(categorias, subcategorias, pessoas, m[5], m[6], m[7]) }}
+  <div class="largo"><button type="submit">Guardar classificação</button> <a class="botao secundario" href="{{ voltar }}">Voltar</a></div>
+</form>
+{% if m[8] != 'historico' %}
+<form method="post" action="{{ url_for('apagar', mov_id=m[0]) }}" onsubmit="return confirm('Apagar este movimento?')" style="margin-top:24px">
+  <input type="hidden" name="voltar" value="{{ voltar }}"><button class="perigo" type="submit">Apagar movimento</button></form>
+{% else %}<p class="nota" style="margin-top:24px">Os movimentos do histórico não se apagam; podes corrigir a classificação.</p>{% endif %}
+{% endblock %}

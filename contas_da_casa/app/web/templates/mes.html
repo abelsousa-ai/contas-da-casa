@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block titulo %}Mês corrente | Contas da casa{% endblock %}
+{% block corpo %}
+{% set meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'] %}
+<h1>{{ meses[data.month - 1] }} {{ data.year }}, até dia {{ data.day }}</h1>
+<p class="sub">A cor e a % comparam o valor do mês com a média mensal de {{ data.year - 1 }}. Em Poupança, Investimentos e Vencimentos, mais é melhor.</p>
+<div class="tabela-wrap"><table>
+<thead><tr><th>Categoria</th><th>Mês</th><th>% média {{ data.year - 1 }}</th><th>Média {{ data.year }}</th><th>Média {{ data.year - 1 }}</th></tr></thead>
+<tbody>
+{% for l in [total] + linhas %}
+<tr class="{{ 'total' if loop.first }}">
+  <td>{{ l.categoria }}</td>
+  <td>{{ euro(l.mes) }}</td>
+  <td>{% if l.pct is none %}<span class="nota">—</span>{% else %}<span class="pct {{ l.cor }}">{{ l.pct }}%</span>{% endif %}</td>
+  <td class="{{ 'texto-' ~ l.cor_media if l.cor_media }}">{{ euro(l.media_ano) }}</td>
+  <td>{{ euro(l.media_anterior) }}</td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+<p class="nota">Média {{ data.year }}: meses completos ({{ v.meses_completos }}); vermelho se for maior do que a de {{ data.year - 1 }} (verde nas categorias em que mais é melhor). “—”: a média de {{ data.year - 1 }} tem o sinal contrário.</p>
+{% endblock %}

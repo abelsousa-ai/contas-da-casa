@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import selects %}
+{% block titulo %}Movimento futuro | Contas da casa{% endblock %}
+{% block corpo %}
+<h1>Inserir movimento futuro</h1>
+<p class="sub">Conta logo no mês e nas análises. Quando importares o extracto, é substituído pelo movimento do banco com esta classificação (mesma conta, mesmo valor, até 5 dias de diferença).</p>
+<form method="post" class="form-grelha">
+  <label>Conta
+    <select name="conta" required>
+      {% for c in contas if not c.so_historico %}<option value="{{ c.id }}">{{ c.nome }}</option>{% endfor %}
+    </select></label>
+  <label>Data<input type="date" name="data" value="{{ hoje }}" required></label>
+  <label>Tipo
+    <select name="sentido"><option value="saida">Saída</option><option value="entrada">Entrada</option></select></label>
+  <label>Valor (€)<input type="text" name="valor" inputmode="decimal" placeholder="0,00" required></label>
+  <label class="largo">Descrição (para te ajudar a encontrá-lo na conciliação)<input type="text" name="descricao" required maxlength="120"></label>
+  {{ selects(categorias, subcategorias, pessoas) }}
+  <div class="largo"><button type="submit">Registar movimento</button></div>
+</form>
+
+<h2>Registados e por conciliar ({{ previstos|length }})</h2>
+{% if previstos %}
+<div class="tabela-wrap"><table>
+<thead><tr><th>Data</th><th>Conta</th><th>Descrição</th><th>Valor</th><th>Categoria</th><th>Pessoa</th><th></th></tr></thead>
+<tbody>
+{% for p in previstos %}
+<tr><td>{{ p[1] }}</td><td>{{ p[2] }}</td><td class="desc">{{ p[3] }}{% if p[5] == 'assinalado' %} <span class="pct mau">Sem correspondência</span>{% endif %}</td><td>{{ euro(p[4]) }}</td><td>{{ p[6] or '—' }}</td><td>{{ p[7] or '—' }}</td>
+<td><form method="post" action="{{ url_for('apagar', mov_id=p[0]) }}" onsubmit="return confirm('Apagar este movimento previsto?')"><input type="hidden" name="voltar" value="{{ url_for('previsto') }}"><button class="ligacao">Apagar</button></form></td></tr>
+{% endfor %}
+</tbody></table></div>
+{% else %}<p class="nota">Nenhum por conciliar.</p>{% endif %}
+{% endblock %}

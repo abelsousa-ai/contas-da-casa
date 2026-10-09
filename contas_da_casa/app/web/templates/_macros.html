@@ -1,0 +1,48 @@
+{% macro selects(categorias, subcategorias, pessoas, cat=None, sub=None, pes=None, obrigatorio=True) -%}
+<label>Categoria
+  <select name="categoria" data-categoria {% if obrigatorio %}required{% endif %}>
+    <option value="">Escolher…</option>
+    {% for c in categorias if c.activa or c.id == cat %}<option value="{{ c.id }}" {% if c.id == cat %}selected{% endif %}>{{ c.nome }}</option>{% endfor %}
+  </select></label>
+<label>Subcategoria (opcional)
+  <select name="subcategoria" data-subcategoria>
+    <option value="">Nenhuma</option>
+    {% for s in subcategorias if s.activa and (s.na_lista or s.id == sub) %}<option value="{{ s.id }}" data-de="{{ s.categoria_id }}" {% if s.id == sub %}selected{% endif %}>{{ s.nome }}</option>{% endfor %}
+  </select></label>
+<label>Pessoa
+  <select name="pessoa" {% if obrigatorio %}required{% endif %}>
+    <option value="">Escolher…</option>
+    {% for p in pessoas if p.activa or p.id == pes %}<option value="{{ p.id }}" {% if p.id == pes %}selected{% endif %}>{{ p.nome }}</option>{% endfor %}
+  </select></label>
+{%- endmacro %}
+
+{% macro pergunta(p, categorias, subcategorias, pessoas, voltar, euro) -%}
+<article class="pergunta" id="m{{ p.id }}">
+  <div class="cab">
+    <span><strong>{{ p.descricao }}</strong><br><span class="nota">{{ p.data }}, {{ p.conta }}</span></span>
+    <span class="valor">{{ euro(p.valor) }}</span>
+  </div>
+  <p class="porque">{{ p.nota }}{% if p.sugestao %} — pré-preenchido com a classificação mais usada ({{ p.sugestao.vezes }} de {{ p.sugestao.total }} vezes){% endif %}</p>
+  {% if p.candidatos %}
+  <p class="nota">Movimentos previstos com o mesmo valor:</p>
+  <div class="form-grelha" style="margin-bottom:10px">
+  {% for c in p.candidatos %}
+    <form method="post" action="{{ url_for('conciliar', mov_id=p.id, previsto_id=c[0]) }}">
+      <input type="hidden" name="voltar" value="{{ voltar }}">
+      <button class="secundario" type="submit">É o previsto de {{ c[1] }}: {{ c[2] }}</button>
+    </form>
+  {% endfor %}
+  </div>
+  {% endif %}
+  <form class="linha" method="post" action="{{ url_for('classificar', mov_id=p.id) }}">
+    <input type="hidden" name="voltar" value="{{ voltar }}">
+    {{ selects(categorias, subcategorias, pessoas, p.categoria_id, p.subcategoria_id, p.pessoa_id) }}
+    {% if p.iguais %}<label class="campo-check"><input type="checkbox" name="mesma_descricao" value="1"> Aplicar também aos outros {{ p.iguais }} pendentes com esta descrição</label>{% endif %}
+    <button type="submit">Guardar classificação</button>
+  </form>
+  <form method="post" action="{{ url_for('apagar', mov_id=p.id) }}" style="margin-top:8px" onsubmit="return confirm('Apagar este movimento? Volta a entrar se importares o extracto outra vez.')">
+    <input type="hidden" name="voltar" value="{{ voltar }}">
+    <button class="ligacao" type="submit">Apagar movimento</button>
+  </form>
+</article>
+{%- endmacro %}

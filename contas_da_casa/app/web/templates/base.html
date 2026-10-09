@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titulo %}Contas da casa{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+<header class="barra">
+  <a class="marca" href="{{ url_for('inicio') }}">Contas da casa</a>
+  <nav aria-label="Menu">
+    <a href="{{ url_for('pendentes') }}" {% if request.endpoint == 'pendentes' %}aria-current="page"{% endif %}>Pendentes{% if avisos.pendentes + avisos.assinalados + avisos.transferencias %}<span class="contador">{{ avisos.pendentes + avisos.assinalados + avisos.transferencias }}</span>{% endif %}</a>
+    <a href="{{ url_for('movimentos') }}" {% if request.endpoint == 'movimentos' %}aria-current="page"{% endif %}>Movimentos</a>
+    <a href="{{ url_for('listas') }}" {% if request.endpoint == 'listas' %}aria-current="page"{% endif %}>Listas</a>
+    <a href="{{ url_for('exportar') }}" {% if request.endpoint == 'exportar' %}aria-current="page"{% endif %}>Exportar</a>
+  </nav>
+</header>
+<main>
+{% with msgs = get_flashed_messages(with_categories=true) %}{% for cat, m in msgs %}<p class="msg {{ 'erro' if cat == 'erro' }}" role="status">{{ m }}</p>{% endfor %}{% endwith %}
+{% block corpo %}{% endblock %}
+</main>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

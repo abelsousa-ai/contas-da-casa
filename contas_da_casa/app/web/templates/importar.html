@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import pergunta %}
+{% block titulo %}Importar extracto | Contas da casa{% endblock %}
+{% block corpo %}
+<h1>Importar extracto</h1>
+<p class="sub">Excel do ActivoBank (conta conjunta, conta investimento, cartão de crédito) ou CSV da Revolut. Podes escolher vários ficheiros; os movimentos já importados não entram outra vez.</p>
+<form method="post" enctype="multipart/form-data" class="linha">
+  <label>Ficheiros<input type="file" name="ficheiros" accept=".xlsx,.csv" multiple required></label>
+  <button type="submit">Importar</button>
+</form>
+
+{% for nome, erro in erros %}<p class="msg erro">{{ nome ~ ': ' if nome }}{{ erro }}</p>{% endfor %}
+
+{% if resumos %}
+<h2>Resultado</h2>
+<div class="tabela-wrap"><table>
+<thead><tr><th>Ficheiro</th><th>Conta</th><th>Novos</th><th>Classificados</th><th>Por classificar</th><th>Conciliados</th><th>Excluídos</th><th>Já existiam</th></tr></thead>
+<tbody>
+{% for r in resumos %}
+<tr><td>{{ r.ficheiro }}</td><td>{{ r.conta }}</td><td>{{ r.novos }}</td><td>{{ r.automaticos }}</td><td>{{ r.pendentes }}</td><td>{{ r.conciliados }}</td><td>{{ r.excluidos }}</td><td>{{ r.duplicados + r.anteriores }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{% for r in resumos %}
+  {% if r.excluidos_detalhe %}
+  <details style="margin-top:10px"><summary>Excluídos de {{ r.ficheiro }} ({{ r.excluidos }})</summary>
+    <ul class="nota">{% for d, desc, v, motivo in r.excluidos_detalhe %}<li>{{ d }} {{ desc }} {{ euro(v) }}: {{ motivo }}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+  {% if r.previstos_assinalados %}<p class="msg">{{ r.previstos_assinalados }} movimento(s) previsto(s) da conta {{ r.conta }} não apareceram no extracto. Vê em <a href="{{ url_for('pendentes') }}#previstos">Pendentes</a>.</p>{% endif %}
+  {% if r.transferencias_a_verificar %}<p class="msg">Há {{ r.transferencias_a_verificar }} transferência(s) interna(s) sem a outra ponta. Vê em <a href="{{ url_for('pendentes') }}#transferencias">Pendentes</a>.</p>{% endif %}
+  {% if r.por_concluir %}<p class="nota">{{ r.por_concluir }} movimento(s) da Revolut ainda não concluídos: entram num extracto futuro.</p>{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if perguntas %}
+<h2>Por classificar ({{ perguntas|length }})</h2>
+<p class="sub">Podes responder agora ou mais tarde em Pendentes.</p>
+{% for p in perguntas %}{{ pergunta(p, categorias, subcategorias, pessoas, url_for('pendentes'), euro) }}{% endfor %}
+{% endif %}
+{% endblock %}
