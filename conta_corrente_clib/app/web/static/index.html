@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Conta Corrente CLIB</title>
+<style>
+  :root { --bg:#f4f5f7; --card:#fff; --txt:#1c1e21; --muted:#6b7280; --line:#e5e7eb;
+          --pos:#15803d; --neg:#b91c1c; --warn:#b45309; --warnbg:#fef3c7; --acc:#1d4ed8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#111317; --card:#1b1e24; --txt:#e8eaed; --muted:#9aa0a6; --line:#2c3038;
+            --pos:#4ade80; --neg:#f87171; --warn:#fbbf24; --warnbg:#3a2e10; --acc:#60a5fa; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.4 -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--txt);
+         padding:12px 12px calc(24px + env(safe-area-inset-bottom)); max-width:760px; margin:0 auto; }
+  .card { background:var(--card); border-radius:12px; padding:14px; margin-bottom:12px; }
+  h2 { font-size:16px; margin:0 0 10px; }
+  .saldo-lbl { color:var(--muted); font-size:13px; }
+  .saldo { font-size:34px; font-weight:700; letter-spacing:-.5px; }
+  .saldo.baixo { color:var(--neg); }
+  .banner { background:var(--neg); color:#fff; padding:10px 12px; border-radius:10px; margin-bottom:12px; font-weight:600; }
+  .tabs { display:flex; gap:6px; margin-bottom:12px; }
+  .tabs button { flex:1; }
+  button { font:inherit; border:1px solid var(--line); background:var(--card); color:var(--txt);
+           padding:9px 12px; border-radius:9px; cursor:pointer; }
+  button.prim { background:var(--acc); color:#fff; border-color:var(--acc); }
+  button.perigo { color:var(--neg); }
+  button.on { border-color:var(--acc); color:var(--acc); font-weight:600; }
+  button:disabled { opacity:.5; }
+  .acoes { display:flex; gap:8px; flex-wrap:wrap; }
+  input, select { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px;
+                  background:var(--card); color:var(--txt); width:100%; }
+  table { width:100%; border-collapse:collapse; }
+  td { padding:9px 4px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tr.mov { cursor:pointer; }
+  .r { text-align:right; white-space:nowrap; }
+  .pos { color:var(--pos); } .neg { color:var(--neg); }
+  .muted { color:var(--muted); font-size:13px; }
+  .tag { display:inline-block; font-size:11px; padding:1px 6px; border-radius:6px; border:1px solid var(--line);
+         color:var(--muted); margin-left:4px; }
+  .tag.rever { background:var(--warnbg); color:var(--warn); border-color:transparent; }
+  .msg { padding:10px 12px; border-radius:10px; margin-bottom:12px; background:var(--card); border-left:4px solid var(--acc); white-space:pre-line; }
+  .msg.erro { border-color:var(--neg); }
+  .linha-cat { display:flex; gap:6px; margin-bottom:6px; }
+  .linha-cat select { flex:2; } .linha-cat input { flex:1; }
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:flex-end; justify-content:center; z-index:10; }
+  .modal .card { width:100%; max-width:760px; max-height:88vh; overflow:auto; border-radius:14px 14px 0 0; margin:0; }
+  .exp { cursor:pointer; }
+  .hidden { display:none !important; }
+  label { display:block; margin:8px 0 4px; font-size:13px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<input id="ficheiro" type="file" accept="application/pdf,.pdf" class="hidden">
+<script>
+"use strict";
+// Caminhos RELATIVOS — obrigatório por causa do prefixo do ingress.
+const API = p => "api/" + p;
+// useGrouping "always": em pt-PT, sem isto 9752,54 € não leva separador de milhares.
+let fmt;
+try { fmt = new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR", useGrouping: "always" }); fmt.format(1); }
+catch (e) { fmt = new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }); }
+const eur = c => fmt.format(c / 100);
+const TIPOS = { saldo: "Saldo", factura: "Factura", nota_credito: "Nota de crédito" };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+
+const S = { aba: "conta", estado: null, analise: null, defs: null, pesquisa: "", todos: false,
+            msg: null, ocupado: false, detalhe: null, confirmarApagar: false, abertos: {} };
+
+async function pedir(caminho, opcoes = {}) {
+  const r = await fetch(API(caminho), opcoes);
+  const ct = r.headers.get("content-type") || "";
+  const dados = ct.includes("json") ? await r.json() : null;
+  if (!r.ok) throw new Error((dados && dados.erro) || ("Erro " + r.status));
+  return dados;
+}
+const json = (metodo, corpo) => ({ method: metodo, headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) });
+
+async function carregarEstado() {
+  try { S.estado = await pedir("estado"); if (S.aba === "analise") S.analise = await pedir("analise"); }
+  catch (e) { S.msg = { erro: true, txt: e.message }; }
+  render();
+}
+
+function aviso(txt, erro = false) { S.msg = { txt, erro }; render(); }
+
+async function sincronizar(tudo = false) {
+  S.ocupado = true; S.msg = { txt: "A sincronizar com o email…" }; render();
+  try {
+    const r = await pedir("sincronizar", json("POST", { tudo }));
+    const partes = [];
+    partes.push(r.emails_novos ? `${r.emails_novos} email(s) novo(s).` : "Sem emails novos.");
+    if (r.novos.length) partes.push("Importados: " + r.novos.join(", "));
+    if (r.a_rever.length) partes.push("⚠ A rever: " + r.a_rever.join(", "));
+    if (r.ja_existiam.length) partes.push("Já existiam: " + r.ja_existiam.join(", "));
+    if (r.erros.length) partes.push("Não lidos (carregar à mão):\n" + r.erros.join("\n"));
+    S.msg = { txt: partes.join("\n"), erro: r.erros.length > 0 };
+  } catch (e) { S.msg = { erro: true, txt: e.message }; }
+  S.ocupado = false; await carregarEstado();
+}
+
+document.getElementById("ficheiro").addEventListener("change", async ev => {
+  const f = ev.target.files[0]; ev.target.value = "";
+  if (!f) return;
+  const fd = new FormData(); fd.append("pdf", f);
+  S.ocupado = true; S.msg = { txt: "A ler o PDF…" }; render();
+  try {
+    const r = await pedir("carregar", { method: "POST", body: fd });
+    const t = { novo: `Importado: ${r.numero}`, a_rever: `Importado com avisos (a rever): ${r.numero}\n${r.avisos.join("\n")}`,
+                ja_existia: `${r.numero} já existia — PDF associado.`, ignorado: "Documento ignorado (extracto de conta).",
+                erro: "Não foi possível ler o documento:\n" + (r.avisos || []).join("\n") }[r.estado];
+    S.msg = { txt: t, erro: r.estado === "erro" };
+  } catch (e) { S.msg = { erro: true, txt: e.message }; }
+  S.ocupado = false; await carregarEstado();
+});
+
+function valorAssinado(m) {
+  const s = m.tipo === "factura" ? -1 : 1;
+  return `<span class="${s < 0 ? "neg" : "pos"}">${s < 0 ? "−" : "+"}${eur(m.valor_cent)}</span>`;
+}
+
+function vistaConta() {
+  const e = S.estado, baixo = e.saldo_cent < e.limite_alerta_cent;
+  const q = S.pesquisa.trim().toLowerCase();
+  let movs = e.movimentos.filter(m => !q || [m.data, TIPOS[m.tipo], m.numero, (m.valor_cent/100).toFixed(2).replace(".", ","),
+      m.origem, m.a_rever ? "a rever" : "", ...m.categorias.map(c => c.categoria)].join(" ").toLowerCase().includes(q));
+  const total = movs.length;
+  if (!S.todos && !q) movs = movs.slice(0, 15);
+  return `
+    ${baixo ? `<div class="banner">⚠ Saldo abaixo de ${eur(e.limite_alerta_cent)} — fazer reforço.</div>` : ""}
+    <div class="card">
+      <div class="saldo-lbl">Saldo actual</div>
+      <div class="saldo ${baixo ? "baixo" : ""}">${eur(e.saldo_cent)}</div>
+      <div class="acoes" style="margin-top:10px">
+        <button class="prim" onclick="sincronizar()" ${S.ocupado || !e.configurado ? "disabled" : ""}>↻ Sincronizar</button>
+        <button onclick="document.getElementById('ficheiro').click()" ${S.ocupado ? "disabled" : ""}>Carregar PDF</button>
+      </div>
+      ${!e.configurado ? `<div class="muted" style="margin-top:8px">Configura a ligação ao email em Definições.</div>` : ""}
+    </div>
+    <div class="card">
+      <h2>Movimentos</h2>
+      <input placeholder="Pesquisar…" value="${esc(S.pesquisa)}" oninput="S.pesquisa=this.value; renderLista()">
+      <div id="lista">${tabela(movs)}</div>
+      ${!q && total > 15 ? `<div style="margin-top:10px"><button onclick="S.todos=!S.todos; render()">${S.todos ? "Ver menos" : `Ver todos (${total})`}</button></div>` : ""}
+    </div>`;
+}
+
+function tabela(movs) {
+  if (!movs.length) return `<p class="muted">Sem movimentos.</p>`;
+  return `<table>${movs.map(m => `
+    <tr class="mov" onclick="abrir(${m.id})">
+      <td><div>${esc(m.numero)}${m.origem === "email" ? `<span class="tag">via email</span>` : ""}${m.a_rever ? `<span class="tag rever">a rever</span>` : ""}</div>
+          <div class="muted">${m.data} · ${TIPOS[m.tipo]}${m.categorias.length ? " · " + esc(m.categorias.map(c => c.categoria).join(", ")) : ""}</div></td>
+      <td class="r">${valorAssinado(m)}</td>
+    </tr>`).join("")}</table>`;
+}
+
+function renderLista() {
+  // Re-render só da lista, para não perder o foco do campo de pesquisa.
+  const q = S.pesquisa.trim().toLowerCase();
+  const tmp = document.createElement("div"); tmp.innerHTML = vistaConta();
+  document.getElementById("lista").innerHTML = tmp.querySelector("#lista").innerHTML;
+}
+
+function vistaAnalise() {
+  const a = S.analise;
+  if (!a) return `<div class="card">A carregar…</div>`;
+  return `
+    <div class="card"><h2>Consumo por ano escolar</h2>
+      <div class="muted" style="margin-bottom:6px">Facturas − notas de crédito. Toca num ano para ver as categorias.</div>
+      <table>${a.por_ano.map(x => `
+        <tr class="exp" onclick="S.abertos['${x.ano}']=!S.abertos['${x.ano}']; render()">
+          <td>${S.abertos[x.ano] ? "▾" : "▸"} ${x.ano}</td><td class="r"><b>${eur(x.total_cent)}</b></td></tr>
+        ${S.abertos[x.ano] ? x.categorias.map(c => `<tr><td class="muted" style="padding-left:22px">${esc(c.categoria)}</td><td class="r muted">${eur(c.valor_cent)}</td></tr>`).join("") : ""}
+      `).join("") || `<tr><td class="muted">Sem dados.</td></tr>`}</table>
+    </div>
+    <div class="card"><h2>Consumo por mês</h2>
+      <table>${a.por_mes.map(x => `<tr><td>${x.mes}</td><td class="r">${eur(x.valor_cent)}</td></tr>`).join("") || `<tr><td class="muted">Sem dados.</td></tr>`}</table>
+    </div>`;
+}
+
+function vistaDefinicoes() {
+  const d = S.defs || {};
+  return `
+    <div class="card"><h2>Ligação ao email (ponte Google)</h2>
+      <label>URL da aplicação Web (termina em /exec)</label>
+      <input id="def-url" value="${esc(d.ponte_url || "")}" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+      <label>Token ${d.token_definido ? "(já definido — deixa vazio para manter)" : ""}</label>
+      <input id="def-token" type="password" autocomplete="off">
+      <div class="acoes" style="margin-top:10px"><button class="prim" onclick="gravarDefs()">Guardar e testar</button></div>
+    </div>
+    <div class="card"><h2>Dados</h2>
+      <div class="acoes">
+        <a href="${API("exportar.csv")}" download><button>Exportar CSV</button></a>
+        <button onclick="sincronizar(true)" ${S.ocupado || !S.estado.configurado ? "disabled" : ""}>Reprocessar todos os emails</button>
+      </div>
+      <div class="muted" style="margin-top:8px">Reprocessar volta a ler todos os emails do colégio; documentos já existentes não são duplicados.</div>
+    </div>
+    <div class="muted">Versão ${esc(S.estado.versao)}${S.estado.ultima_sync ? " · última sincronização " + S.estado.ultima_sync : ""}</div>`;
+}
+
+async function gravarDefs() {
+  const corpo = { ponte_url: document.getElementById("def-url").value, ponte_token: document.getElementById("def-token").value };
+  S.msg = { txt: "A testar a ligação…" }; render();
+  try { await pedir("definicoes", json("POST", corpo)); S.defs = await pedir("definicoes"); S.msg = { txt: "Ligação OK e guardada." }; }
+  catch (e) { S.msg = { erro: true, txt: e.message }; }
+  await carregarEstado();
+}
+
+// ---------- Detalhe / edição ----------
+function abrir(id) {
+  const m = S.estado.movimentos.find(x => x.id === id);
+  S.detalhe = { m, cats: m.categorias.map(c => ({ categoria: c.categoria, valor: (c.valor_cent / 100).toFixed(2).replace(".", ",") })) };
+  S.confirmarApagar = false; render();
+}
+function fechar() { S.detalhe = null; render(); }
+
+function vistaDetalhe() {
+  const { m, cats } = S.detalhe;
+  const cat = m.tipo !== "saldo";
+  return `<div class="modal" onclick="if(event.target===this) fechar()"><div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">${esc(m.numero)}</h2><button onclick="fechar()">✕</button></div>
+    <p>${TIPOS[m.tipo]} · ${m.data} · ${valorAssinado(m)}<br>
+       <span class="muted">Origem: ${m.origem === "email" ? "email" : "carregado à mão"}</span></p>
+    ${m.a_rever ? `<div class="msg erro">⚠ A rever:\n${esc(m.avisos.join("\n") || "verificar categorias")}</div>` : ""}
+    <div class="acoes" style="margin-bottom:12px">
+      ${m.tem_pdf ? `<a href="${API("pdf/" + m.id)}" target="_blank"><button>Abrir PDF</button></a>` : ""}
+      ${m.drive_url ? `<a href="${esc(m.drive_url)}" target="_blank" rel="noopener"><button>Abrir no Drive</button></a>` : ""}
+    </div>
+    ${cat ? `<h2>Categorias</h2>
+      ${cats.map((c, i) => `<div class="linha-cat">
+        <select onchange="S.detalhe.cats[${i}].categoria=this.value">${S.estado.categorias.map(k => `<option ${k === c.categoria ? "selected" : ""}>${esc(k)}</option>`).join("")}</select>
+        <input inputmode="decimal" value="${esc(c.valor)}" oninput="S.detalhe.cats[${i}].valor=this.value">
+        <button onclick="S.detalhe.cats.splice(${i},1); render()">−</button></div>`).join("")}
+      <div class="acoes"><button onclick="S.detalhe.cats.push({categoria:S.estado.categorias[0], valor:''}); render()">+ Categoria</button>
+        <button class="prim" onclick="gravarCats()">Guardar${m.a_rever ? " e marcar revisto" : ""}</button></div>` :
+      (m.a_rever ? `<div class="acoes"><button class="prim" onclick="gravarCats()">Marcar revisto</button></div>` : "")}
+    <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+    ${S.confirmarApagar
+      ? `<div class="acoes"><button class="perigo" onclick="apagar(${m.id})">Confirmar: apagar ${esc(m.numero)}</button><button onclick="S.confirmarApagar=false; render()">Cancelar</button></div>
+         ${m.origem === "email" ? `<div class="muted" style="margin-top:6px">Não volta a ser importado na sincronização normal (só com "Reprocessar todos").</div>` : ""}`
+      : `<button class="perigo" onclick="S.confirmarApagar=true; render()">Apagar movimento</button>`}
+  </div></div>`;
+}
+
+async function gravarCats() {
+  const { m, cats } = S.detalhe;
+  const categorias = cats.map(c => ({ categoria: c.categoria, valor_cent: Math.round(parseFloat(String(c.valor).replace(/\s/g, "").replace(",", ".")) * 100) }));
+  if (categorias.some(c => !(c.valor_cent > 0))) return aviso("Valores de categoria inválidos.", true);
+  try { await pedir("movimentos/" + m.id, json("PUT", { categorias, revisto: true })); S.detalhe = null; S.msg = { txt: "Guardado." }; }
+  catch (e) { return aviso(e.message, true); }
+  await carregarEstado();
+}
+
+async function apagar(id) {
+  try { await pedir("movimentos/" + id, { method: "DELETE" }); S.detalhe = null; S.msg = { txt: "Movimento apagado." }; }
+  catch (e) { return aviso(e.message, true); }
+  await carregarEstado();
+}
+
+// ---------- Navegação ----------
+async function irPara(aba) {
+  S.aba = aba; S.msg = null; render();
+  if (aba === "analise") S.analise = await pedir("analise").catch(e => (S.msg = { erro: true, txt: e.message }, null));
+  if (aba === "definicoes") S.defs = await pedir("definicoes").catch(() => ({}));
+  render();
+}
+
+function render() {
+  const app = document.getElementById("app");
+  if (!S.estado) { app.innerHTML = S.msg ? `<div class="msg erro">${esc(S.msg.txt)}</div>` : `<div class="card">A carregar…</div>`; return; }
+  const aba = (id, txt) => `<button class="${S.aba === id ? "on" : ""}" onclick="irPara('${id}')">${txt}</button>`;
+  app.innerHTML = `
+    <div class="tabs">${aba("conta", "Conta")}${aba("analise", "Análise")}${aba("definicoes", "Definições")}</div>
+    ${S.msg ? `<div class="msg ${S.msg.erro ? "erro" : ""}" onclick="S.msg=null; render()">${esc(S.msg.txt)}</div>` : ""}
+    ${S.aba === "conta" ? vistaConta() : S.aba === "analise" ? vistaAnalise() : vistaDefinicoes()}
+    ${S.detalhe ? vistaDetalhe() : ""}`;
+}
+
+// Os dois telemóveis usam a mesma BD: actualizar ao voltar à app e a cada minuto.
+// Não actualiza enquanto se escreve, edita ou está nas Definições (perdia-se o que foi escrito).
+const podeActualizar = () => !document.hidden && !S.ocupado && !S.detalhe && S.aba !== "definicoes"
+  && !["INPUT", "SELECT"].includes((document.activeElement || {}).tagName);
+document.addEventListener("visibilitychange", () => { if (podeActualizar()) carregarEstado(); });
+setInterval(() => { if (podeActualizar()) carregarEstado(); }, 60000);
+carregarEstado();
+</script>
+</body>
+</html>
