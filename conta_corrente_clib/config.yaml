@@ -2,7 +2,7 @@ name: Conta Corrente CLIB
 version: "1.0.0"
 slug: conta_corrente_clib
 description: Conta corrente com o colégio (saldo, facturas, notas de crédito), importada do Gmail
-url: "https://github.com/abelsousa-ai/contas-da-casa
+url: https://github.com/abelsousa-ai/contas-da-casa
 arch:
   - aarch64
   - amd64
